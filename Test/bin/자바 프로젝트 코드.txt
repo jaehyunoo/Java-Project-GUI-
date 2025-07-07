@@ -1,0 +1,1056 @@
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
+//BankProject
+public class BankProject {
+   //계좌의 개수 
+   private static int SavingAccountCounter =0;
+   private static int LoanAccountCounter = 0;
+   private static int AccountCounter = 0;
+   //위아래 선 
+   private static String border = "+" + "-".repeat(70) + "+";
+   //메뉴번호 
+   private static int menuProcess;
+   //은행 계좌 클래스 
+    class BankAccount {
+       //계좌, 금액 변수 
+        String accountNumber;
+        double balance;
+        //생성자 
+        public BankAccount(String accountNumber, double balance) {
+            this.accountNumber = accountNumber;
+            this.balance = balance;
+        }
+        //계좌번호 반환 
+        public String getAccountNumber() {
+            return accountNumber;
+        }
+        //금액 반환 
+        public double getBalance() {
+            return balance;
+        }
+        //예금
+        public void deposit(double amount) {
+            balance += amount;
+        }
+        //출금
+        public void withdraw(double amount) {
+            if (balance >= amount) {
+                balance -= amount;
+            } else {
+                System.out.println("Insufficient funds");
+            }
+            
+        }
+
+        // 이자 메서드 (오버라이드 함.)
+        public void addInterest() {
+
+        }
+    }
+//적금계좌 
+    class SavingsAccount extends BankAccount {
+        double interestRate;
+        //생성자 
+        public SavingsAccount(String accountNumber, double balance, double interestRate) {
+            super(accountNumber, balance);
+            this.interestRate = interestRate;
+        }
+        @Override
+        //이자 추가
+        public void addInterest() {
+            balance += balance * interestRate / 100;
+        }
+    }
+//적금 상품 1
+    class SavingsPlan1 extends SavingsAccount {
+       //생성자 
+        public SavingsPlan1(String accountNumber, double balance) {
+            super(accountNumber, balance, 1.5);  // 이율 1.5%
+        }
+    }
+//적금 상품 2
+    class SavingsPlan2 extends SavingsAccount {
+       // 생성자
+        public SavingsPlan2(String accountNumber, double balance) {
+            super(accountNumber, balance, 2.0);  // 이율 2.0%
+        }
+    }
+//대출계좌
+    class LoanAccount extends BankAccount {
+        double interestRate;
+        double initialLoanAmount;
+        double loanLimit;
+        //생성자
+        public LoanAccount(String accountNumber, double balance, double interestRate, double loanLimit) {
+            super(accountNumber, -balance);  // 대출은 마이너스 잔액
+            this.interestRate = interestRate;
+            this.initialLoanAmount = balance;
+            this.loanLimit = loanLimit;
+        }
+        //이자 추가
+        @Override
+        public void addInterest() {
+            balance -= balance * interestRate / 100;
+        }
+        //상환
+        public void repay(double amount) {
+            deposit(amount);
+        }
+        //대출 상태
+        public boolean isFullyRepaid() {
+            return balance >= 0;
+        }
+        //추가 대출
+        public boolean canTakeAdditionalLoan(double amount) {
+            return (initialLoanAmount + amount) <= loanLimit;
+        }
+    }
+    //대출 상품 1
+    class LoanPlan1 extends LoanAccount {
+       //생성자
+        public LoanPlan1(String accountNumber, double balance) {
+            super(accountNumber, balance, 3.5, 70000000);  // 이율 3.5%, 최대 대출 한도 7000만원
+        }
+    }
+    //대출 상품 2
+    class LoanPlan2 extends LoanAccount {
+       //생성자
+        public LoanPlan2(String accountNumber, double balance) {
+            super(accountNumber, balance, 4.0, 50000000);  // 이율 4.0%, 최대 대출 한도 5000만원
+        }
+    }
+    //고객 클래스
+    class Customer {
+       //변수
+        String name;
+        String phoneNumber;
+        String accountNumber;
+        int creditScore;
+        int age;
+        ArrayList<BankAccount> accounts;
+        List<String> stringList;
+        //생성자
+        public Customer(String name, String phoneNumber, String accountNumber, int creditScore, int age) {
+            this.name = name;
+            this.phoneNumber = phoneNumber;
+            this.accountNumber = accountNumber;
+            this.creditScore = creditScore;
+            this.age = age;
+            this.accounts = new ArrayList<>();
+            this.stringList = new ArrayList<>();
+        }
+        //계좌 추가
+        public void addAccount(BankAccount account) {
+            accounts.add(account);
+        }
+        //계좌 출력
+        public void showAccounts() {
+            for (BankAccount account : accounts) {
+                addInBox("Account Number: " + account.getAccountNumber() + ", Balance: " + account.getBalance(), this);
+            }
+        }
+        //신용점수 확인
+        public boolean canTakeLoan() {
+            return creditScore >= 600;  // 예: 신용점수 600 이상이어야 대출 가능
+        }
+        //신용점수 반영
+        public void adjustCreditScore() {
+            for (BankAccount account : accounts) {
+                if (account instanceof LoanAccount) {
+                    LoanAccount loanAccount = (LoanAccount) account;
+                    if (!loanAccount.isFullyRepaid()) {
+                        creditScore -= 10;  // 미상환 대출이 있으면 신용점수 감소
+                    } else if (loanAccount.isFullyRepaid() && creditScore < 800) {
+                        creditScore += 5;  // 대출을 모두 갚으면 신용점수 회복
+                    }
+                }
+            }
+        }
+    }
+    //은행 클래스 
+    class Bank {
+       //변수
+        ArrayList<Customer> customers;
+        String[][] menuStr = new String[][] {
+           {"Please Input Number And Press EnterKey",
+              "1 : New Customer",
+              "2 : Existing Customer",
+              "3 : Game"},
+           {"Hello, Please Input Number And Press EnterKey(Home : 0)",
+                  "1 : Create an SavingAccount",
+                  "2 : Create an LoanAccount"},
+           {"Hello, Please Input Your Name, Phone Number, Age",
+           "ex) Alice, 010-1234-5678, 20"},
+           {"1 : Interest Rate Of 1.5%", "2 : Interest Rate Of 2%(Under 20 years old)"},
+           {"1 : Interest rate of 3.5%, maximum loan limit of 70,000,000 KRW",
+                 "2 : Interest rate of 4.0%, maximum loan limit of 50,000,000 KRW"},
+           {"Hello, Please Input Number And Press EnterKey(Home : 0)",
+              "1: deposit",
+              "2: withdraw",
+              "3: getAccountNumber",
+              "4: getBalance",
+              "5: getYourInfo",
+              "6: Create an SavingAccount",
+              "7: create an LoanAccount",
+              "0: Home"},
+           {"Game", "Win The Game To Get 50KRW", "Select Game", "1 : vocaGame", "2 : mazeGame", "0: Home"},
+           {"vocaGame", "The word-matching game randomly takes one of the five fruits", "when executing the code and submits the question.", "There are 4 hints in total. You have to answer 4 times."},
+           {"mazeGame", "In the maze game,","the user moves w(top), a(left), s(bottom), and d(right)", "to the destination X.", "You can earn ★ (coins) while on the move."}
+           };
+        //생성자
+      public Bank() {
+            customers = new ArrayList<>();
+        }
+      //고객 추가
+        public void addCustomer(Customer customer) {
+            customers.add(customer);
+        }
+        //모든 계좌 출력
+        public void showAllAccounts(Customer customer) {
+            customer.stringList.clear();
+            addInBox("Customer: " + customer.name + ", Phone: " + customer.phoneNumber + ", Age : " + customer.age, customer);
+            customer.showAccounts();
+            addInBox("Credit Score: " + customer.creditScore, customer);
+            System.out.println();
+        }
+        
+        public void menu() {
+           
+        }
+        //신용점수 조절
+        public void adjustAllCreditScores() {
+            for (Customer customer : customers) {
+                customer.adjustCreditScore();
+            }
+        }
+    }
+    //게임 1
+    private static boolean vocaGame(Scanner scanner) {
+        System.out.println(">>> 과일 맞추기 게임을 시작합니다 <<<");
+        // 과일의 종류를 저장할 fruits 1차원배열 생성, 각 과일에해당하는 힌트를 4개씩저장하는 hints 5행4열의 2차원배열생성
+        String[] fruits = {"바나나", "사과", "수박", "딸기", "포도"};
+        String[][] hints = {
+            {"이 과일은 열대과일입니다.", "이 과일은 껍질을 까야 먹을 수 있습니다", "이 과일은 빙그레의 대표적인 우유맛입니다", "이 과일은 원숭이와 연관이 있습니다"},
+            {"이 과일은 주스로 아침에 자주 먹습니다", "이 과일은 경상북도 청송의 대표적인 과일입니다", "이 과일은 달콤하고 상큼합니다", "이 과일은 주로 빨간색이지만 녹색이나 황색일 경우도있습니다"},
+            {"이 과일은 땅에서 자라는 과일입니다", "이 과일은 신선도를 확인하기위해 손으로 두드려보는 사람들이 많습니다", "이 과일은 동물에 비교하면 얼룩말과 비슷하게 생겼습니다", "이 과일은 시원하게 먹기위해 물에 담궈놓기도 합니다"},
+            {"이 과일에는 씨가 사람의 블랙헤드처럼 겉면에 붙어있습니다", "주로 봄에서 여름 사이에서 수확되는 과일입니다", "이 과일은 소화를 촉진하고 혈당 조절에 도움이 됩니다", "이 과일은 잼으로도 유명합니다"},
+            {"이 과일은 발효시켜 술로만들수있는데 코드작성자가 진짜 좋아합니다(진짜 맛있음)", "이 과일은 먹을 때 씨가 거슬릴 수 있습니다", "이 과일은 크기가 다양하지만 씨가 없는 것도 있습니다", "이 과일과 비슷한 모양의 과일 중 초록색도 있습니다"}
+        };
+        // 최대 도전횟수(4회)를 상수로 저장
+        final int TRY = 4;
+        //랜덤객체 생성
+        Random random = new Random();
+        
+        // 퀴즈를 내기위해서 fruits의 배열에서 랜덤인덱스를 가져옴
+        int randomindex = random.nextInt(fruits.length);
+        String randomfruit = fruits[randomindex]; // random 인덱스를 이용해 퀴즈에 낼과일을 불러옵니다
+        String[] fruithints = hints[randomindex]; // hints의 퀴즈에 낼과일의행을 불러와 그에속한 열들을 1차원배열 fruithints에 저장시킵니다.
+        // 시작과 동시에 첫번째 기회가 주어지므로 현재 도전횟수의 초기값을 1로저장
+        int trynum = 1;
+        
+        System.out.println(trynum + "번째 힌트: " + fruithints[trynum - 1]);
+        //4번의 기회안에 과일을 맞혀야함
+        while (trynum <= TRY) {
+            System.out.print("과일 이름을 추측하세요: ");
+            String answer = scanner.nextLine();
+            // 입력한값과 문제에 주어진 과일의 문자열이 같을경우
+            if (answer.equals(randomfruit)) {
+                System.out.println(trynum + "번 째 만에 맞추셨습니다! 과일은 " + randomfruit + "입니다.");
+                break;
+            } else { // 다를경우는 횟수가 1회늘어나고 그다음 열의 힌트가 주어짐
+                trynum++;
+                if (trynum <= TRY) {
+                    System.out.println("틀렸습니다. 다시 추측해 보세요. \n" + trynum + "번째 힌트: " + fruithints[trynum - 1]);
+                } else {
+                    System.out.println("아쉽지만 시도 횟수를 초과했습니다.");
+                }
+            }
+        }
+        System.out.println("정답은 " + randomfruit + "입니다.");
+        //정답 확인
+        if(trynum <= 4) {System.out.println("win"); return true;} // 4번안에 성공할경우 win을 출력하고 게임결과는 승리했으므로 true반환
+        else return false; // 4번안에 성공하지못할경우 패배했으므로 false값 반환
+
+        
+    }
+    //게임2
+    private static boolean mazeGame(Scanner scanner) {
+       //변수
+       final int SIZE = 15; // 미로의 크기 (가로, 세로 동일)
+        final char WALL = '■';    // 벽
+        final char EMPTY = ' ';   // 빈 공간
+        final char COIN = 'C';	  // 코인 표시
+        final char PLAYER = 'P';  // 플레이어 표시
+        final char EXIT = 'E';    // 탈출구 표시
+
+        char[][] maze = {
+          {'■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■'},
+            {'■', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■'},
+            {'■', '■', '■', '■', ' ', '■', ' ', '■', '■', '■', '■', '■', '■', ' ', '■'},
+            {'■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', '■'},
+            {'■', '■', '■', '■', '■', '■', '■', '■', '■', ' ', '■', '■', '■', ' ', '■'},
+            {'■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', '■', ' ', '■'},
+            {'■', '■', '■', '■', '■', '■', '■', ' ', '■', ' ', '■', ' ', '■', ' ', '■'},
+            {'■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', '■', ' ', '■'},
+            {'■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', ' ', '■', ' ', '■'},
+            {'■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■', ' ', ' ', ' ', '■', ' ', '■'},
+            {'■', ' ', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', ' ', '■'},
+            {'■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■'},
+            {'■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', ' ', '■'},
+            {'■', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '■'},
+            {'■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■', '■'}
+        };
+        // 플레이어 위치는 (1행,1열에서 시작)
+        int playerX = 1;
+        int playerY = 1;
+        // 현재 코인을 먹은개수를 저장하는 변수생성
+        int coincount = 0;
+        // 게임의 승리패배여부를 처음에는 false로 초기값설정
+        boolean win = false;
+        // 랜덤객체 생성
+        Random random = new Random();
+
+        // 탈출구 초기화(13행 1열에 탈출구 생성)
+        maze[SIZE - 2][SIZE - 14] = EXIT;
+        
+        // 코인 배치
+        // 코인을 미로에 빈공간에 배치할 갯수
+        int coinsnum = random.nextInt(5,10); // 5개 이상 9개 이하의 코인 배치
+        // 현재 코인이 생성되어있는 개수를 초기화
+        int coinsplaced = 0; 
+        // 코인을 미로에 빈공간에 배치할 개수까지 반복하면서 코인생성
+        while (coinsplaced < coinsnum) {
+        	// 무작위 위치에 코인을 생성하기 위해 행과 열의 인덱스값을 랜덤으로 생성
+            int x = random.nextInt(SIZE);
+            int y = random.nextInt(SIZE);
+            // 무작위 행과 열이 빈공간(" ") 이어야하고 플레이어 생성위치(1행1열)과 탈출구 생성위치(13행 1열)이 아닐때만 코인을 생성하는 조건문
+            if (maze[y][x] == EMPTY && !(x == 1 && y == 1) && !(x == SIZE - 2 && y == SIZE - 14)) {
+                maze[y][x] = COIN;
+                coinsplaced++;
+            }
+        }
+
+        while (true) {
+            // 미로 그림 그리기
+        	// 행부터
+            for (int y = 0; y < SIZE; y++) {
+            	// 열까지 이중반복문
+                for (int x = 0; x < SIZE; x++) {
+                	// 현재위치가 플레이어 위치(1행1열)과 동일한지 확인하는 조건문
+                    if (x == playerX && y == playerY) {
+                    	// 동일하면 PLAYER(P)를 출력
+                        System.out.print(PLAYER + " ");
+                    } else { // 그렇지 않을경우는 해당 y행x열에 해당하는 요소를 출력(벽(■),C(코인),E(탈출구))
+                        System.out.print(maze[y][x] + " ");
+                    }
+                }
+                System.out.println(); // 한 행이 끝나면 줄바꿈
+            }
+            System.out.println();
+            System.out.println("현재 코인 개수: " + coincount); // 코인을 먹을 때마다 올라가는 실시간 코인개수 출력
+            System.out.print("이동을 입력하세요 (w: 위, s: 아래, a: 왼쪽, d: 오른쪽) : ");
+            char move = scanner.next().charAt(0); // 한 문자를 입력받아 이동
+
+            // 이동하기위해 행과 열값을 새로운 변수에 입력
+            int newplayerX = playerX; 
+            int newplayerY = playerY;
+            // 스위치문을 통해 해당 문자를 입력받아 이동
+            switch (move) {
+                case 'w':
+                    newplayerY--; // - 1행(위로 이동)
+                    break;
+                case 's':
+                    newplayerY++; // + 1행(아래로 이동)
+                    break;
+                case 'a':
+                    newplayerX--; // - 1열(왼쪽 이동)
+                    break;
+                case 'd':
+                    newplayerX++; // + 1열(오른쪽 이동)
+                    break;
+                default:
+                    System.out.println("유효하지 않은 입력입니다. 다시 입력하세요."); // 다시 입력받기 위해 반복문 다시실행
+                    continue;
+            }
+
+            // 이동할 위치가 벽이 아니고 미로 내부에 있을 경우에만 이동(이동하는 행과 열값이 벽의 행과열과 일치하지않고 행과 열값이 0보다크고 미로의크기인 15보다 작을경우)
+            if (maze[newplayerY][newplayerX] != WALL &&
+                    newplayerX >= 0 && newplayerX < SIZE &&
+                    newplayerY >= 0 && newplayerY < SIZE) {
+                playerX = newplayerX;
+                playerY = newplayerY;
+
+                // 코인을 먹었는지 확인(이동하는 행과열값이 코인이 생성된 행과열과 같을 경우)
+                if (maze[playerY][playerX] == COIN) {
+                    maze[playerY][playerX] = EMPTY; // 코인이 있던 자리는 빈공간(EMPTY)으로 만들어줌
+                    coincount++; // 코인을 먹은 개수 증가
+                }
+            } else {
+                // 벽에 부딪혔을 때 처리 (게임 종료)
+                System.out.println("벽에 부딪혔습니다. 게임 오버!");
+                win = false;
+                break;
+            }
+
+            // 탈출구에 도착하면 게임 승리
+            if (maze[playerY][playerX] == EXIT) {
+                System.out.println("축하합니다! 미로를 탈출했습니다!");
+                win = true;
+                break;
+            }
+        }
+        // 게임이 이겼는지 졌는지에 대한 결과를 반환
+        return win;
+    }
+
+    // 박스형태로 저장
+    public static void addInBox(String message, Customer customer) {
+       customer.stringList.add(message);
+    }
+    //박스 출력
+    public static void printInBox(Customer customer) {
+       printBorder();
+       System.out.println(printMiddle("Customer Info"));
+       for(var message : customer.stringList) {
+          System.out.println(printLeft(message));
+       }
+       printBorder();
+
+    }
+    //위아래 선 출력
+    public static void printBorder() {
+       
+       System.out.println(border);
+    }
+    //박스의 중간에 출력
+    public static String printMiddle(String message) {
+       int size = message.length();
+       return "| " + " ".repeat((68 - size)/2)+ message + " ".repeat((68 - size)/2)+ ((size % 2 == 1)? " " : "") + " |";
+    }
+    //박스의 왼쪽에 출력
+    public static String printLeft(String message) {
+       int size = message.length();
+       return "| " + message + " ".repeat(70-2-size)+ " |";
+    }
+    //메뉴 처음으로 돌아가기
+    public static void goHome() {
+       printBorder();
+      System.out.println(printLeft("Go Home.."));
+      printBorder();
+      menuProcess = 0;
+    }
+    public static void main(String[] args) {
+       //변수
+       Scanner stdIn = new Scanner(System.in);
+        BankProject project = new BankProject();
+        Bank bank = project.new Bank();
+        boolean isOpen = true;
+        menuProcess = 0;
+        int selectNum = 0;
+        boolean isNew = false;
+        boolean isDuplicate;
+      Customer customer;
+        String nameAccount, amount;
+       String[] menuItems = null;
+       //은행이 열렸을 때
+        while(isOpen) {
+           //메뉴 생성
+           nameAccount = "" ;amount = "";
+           menuItems = bank.menuStr[menuProcess];
+          switch(menuProcess) {
+          //0일 때
+          case 0:
+             isNew = false;
+             printBorder();
+             //메뉴 출력
+              for(var menu : menuItems) {
+                 System.out.println(printLeft(menu));
+              }
+              printBorder();
+              //메뉴 입력받기
+              System.out.print("| Input Here! : ");
+              selectNum = stdIn.nextInt();
+              switch(selectNum) {
+              case 0:
+                 goHome();
+                break;
+              case 1:
+                 menuProcess = 1;
+                 break;
+              case 2:
+                 menuProcess = 5;
+                 break;
+              case 3:
+                 menuProcess = 6;
+                 break;
+              default:
+                 printBorder();
+                 System.out.println(printLeft("Wrong Menu! Select Again!"));
+                 printBorder();
+              }
+              break;
+           //메뉴가 1일때
+          case 1:
+             //메뉴 1번 출력
+             printBorder();
+             for(var menu : menuItems) {
+                System.out.println(printLeft(menu));
+             }
+             printBorder();
+             //입력받기
+             System.out.print("| Input Here! : ");
+             selectNum = stdIn.nextInt();
+             if(selectNum == 1) {
+                menuProcess = 2;
+                isNew = true;
+             }
+             else if(selectNum == 2) {
+                menuProcess = 3;
+                isNew = true;
+             }
+             if(selectNum == 0)
+                goHome();
+             stdIn.nextLine();
+             break;
+          //메뉴가 2일 때
+          case 2:
+             String[] nameAccountArray;
+             printBorder();
+             //2번 출력
+             for(var menu : menuItems) {
+                 System.out.println(printLeft(menu));
+              }
+             printBorder();
+             do {
+             //이름, 전화번호, 나이 입력받기 
+             System.out.print("| Input Here2! : ");
+             nameAccount = stdIn.nextLine();
+             nameAccountArray = nameAccount.replace(" ", "").split(",");
+             } while(nameAccountArray.length != 3);
+             //System.out.println(Arrays.toString(nameAccountArray));
+             //System.out.println(MessageFormat.format("C{0}", AccountCounter));
+             isDuplicate = false;
+             customer = null;
+             //중복됐는지 확인
+             for(var i : bank.customers) {
+                if(nameAccountArray[0].equals(i.name) && nameAccountArray[1].equals(i.phoneNumber) && Integer.parseInt(nameAccountArray[2]) == i.age) {
+                   isDuplicate = true;
+                   customer = i;
+                   break;
+                }
+             }
+             //중복되었고 신규고객이라면
+             if(isDuplicate && isNew) {
+                printBorder();
+                System.out.println(printLeft("Existing Customer!"));
+                menuProcess = 0;
+                printBorder();
+             }
+             //중복되지 않았고 기존 고객이라면
+             else if(!isNew && !isDuplicate) {
+                printBorder();
+                menuProcess = 0;
+                System.out.println(printLeft("Non-Existing Customer!"));
+                printBorder();
+             }
+             //아니면
+             else {
+                //게좌번호 생성
+                String accountNum = (String)(MessageFormat.format("C{0}", AccountCounter++));
+                //신규고객은 일반 계좌도 개설
+                if(isNew) {
+                   customer = project.new Customer(nameAccountArray[0], nameAccountArray[1], accountNum , 700, Integer.parseInt(nameAccountArray[2]));
+                   bank.addCustomer(customer);
+                   customer.addAccount(project.new BankAccount(accountNum, 0));
+                }
+                //계좌 보여주기
+                bank.showAllAccounts(customer);
+                printInBox(customer);
+                menuProcess = 3;
+                menuItems = bank.menuStr[menuProcess];
+                 while(true) {
+                    //메뉴 3번 출력
+                    printBorder();
+                    for(var menu : menuItems) {
+                       System.out.println(printLeft(menu));
+                    }
+                    printBorder();
+                    while(true) {
+                       //적금상품 선택
+                       System.out.print("| Input Here! : ");
+                      selectNum = stdIn.nextInt();
+                      if(selectNum == 0) {goHome();break;}
+                      else if(selectNum == 2) {
+                         if(customer.age >= 20)
+                            System.out.println(printLeft("Not under 20 years old"));
+                         else
+                            break;
+                      }
+                      else if(selectNum == 1) break;
+                      else {
+                         printBorder();
+                         System.out.println("Wrong Menu! Select Again!");
+                         printBorder();
+                      }
+                    }
+                    //적금계좌 개설
+                   String savingAccountNum = (String)(MessageFormat.format("S{0}", SavingAccountCounter++));
+                   Double balance;
+                   while(true) {
+                      //금액 입력
+                      printBorder();
+                      System.out.print("| Input Balance! : ");
+                      balance = stdIn.nextDouble();
+                      if(balance > 0) break;
+                      else System.out.println(printLeft("Invalid Balance"));
+                      printBorder();
+                   }
+                   //적금상품 1번 개설
+                   if(selectNum == 1) {
+                      bank.customers.get(bank.customers.size() - 1).addAccount(project.new SavingsPlan1(savingAccountNum, balance));
+                      bank.showAllAccounts(bank.customers.get(bank.customers.size() - 1));
+                      printInBox(bank.customers.get(bank.customers.size() - 1));
+                      printBorder();
+                      System.out.println(printLeft("Go Home, Please wait a second"));
+                      printBorder();
+                      menuProcess = 0;
+                      break;
+                   }
+                   //적금상품 2번 개설
+                   else if(selectNum  == 2) {
+                      bank.customers.get(bank.customers.size() - 1).addAccount(project.new SavingsPlan2(savingAccountNum, balance));
+                      bank.showAllAccounts(bank.customers.get(bank.customers.size() - 1));
+                      printInBox(bank.customers.get(bank.customers.size() - 1));
+                      goHome();
+                      break;
+                      
+                   }
+                   else if(selectNum == 0) {goHome();break;}
+                   else {
+                      printBorder();
+                      System.out.println("Wrong Menu! Select Again!");
+                      printBorder();
+                   }
+                 }
+                break;
+             }
+             break;
+          case 3:
+             printBorder();
+             //메뉴 2번 출력
+             menuItems = bank.menuStr[2];
+             for(var menu : menuItems) {
+                 System.out.println(printLeft(menu));
+              }
+             printBorder();
+             do {
+                //이름, 전화번호, 나이 입력받기 
+                System.out.print("| Input Here! : ");
+                nameAccount = stdIn.nextLine();
+                nameAccountArray = nameAccount.replace(" ", "").split(",");
+                
+             } while(nameAccountArray.length != 3);
+             //System.out.println(MessageFormat.format("C{0}", AccountCounter));
+             isDuplicate = false;
+             customer = null;
+             //중복 확인
+             for(var i : bank.customers) {
+                if(nameAccountArray[0].equals(i.name) && nameAccountArray[1].equals(i.phoneNumber) && Integer.parseInt(nameAccountArray[2]) == i.age) {
+                   isDuplicate = true;
+                   customer = i;
+                   break;
+                }
+             }
+             //중복되고 신규고객이라면
+             if(isDuplicate && isNew) {
+                printBorder();
+                System.out.println(printLeft("Existing Customer!"));
+                menuProcess = 0;
+                printBorder();
+             }
+             //중복되지 않고 기존 고객이라면
+             else if(!isNew && !isDuplicate) {
+                printBorder();
+                menuProcess = 0;
+                System.out.println(printLeft("Non-Existing Customer!"));
+                printBorder();
+             }
+             //아니면
+             else {
+                //신규고객은 계좌 개설
+                String accountNum = (String)(MessageFormat.format("C{0}", AccountCounter++));
+                if(isNew) {
+                   customer = project.new Customer(nameAccountArray[0], nameAccountArray[1], accountNum , 700, Integer.parseInt(nameAccountArray[2]));
+                   bank.addCustomer(customer);
+                   customer.addAccount(project.new BankAccount(accountNum, 0));
+                }
+                //계좌 보여주기
+                bank.showAllAccounts(customer);
+                printInBox(customer);
+                //4번 메뉴 출력
+                menuProcess = 4;
+                menuItems = bank.menuStr[menuProcess];
+                 while(true) {
+                    printBorder();
+                    for(var menu : menuItems) {
+                       System.out.println(printLeft(menu));
+                    }
+                    printBorder();
+                    System.out.print("| Input Here! : ");
+                    //대출상품 선택
+                   selectNum = stdIn.nextInt();
+                   //대출계좌 개설
+                   String loanAccountNum = (String)(MessageFormat.format("L{0}", LoanAccountCounter++));
+                   Double balance;
+                   while(true) {
+                      printBorder();
+                      System.out.print("| Input Balance! : ");
+                      balance = stdIn.nextDouble();
+                      if(balance > 0) {
+                         if(selectNum == 1) {
+                            if(balance <= 70000000)
+                               break;
+                         }
+                         else if(balance <= 50000000)
+                            break;
+                      }
+                      else System.out.println(printLeft("Invalid Balance"));
+                      printBorder();
+                   }
+                   //대출 계좌 개설
+                   if(selectNum == 1) {
+                      bank.customers.get(bank.customers.size() - 1).addAccount(project.new LoanPlan1(loanAccountNum, balance));
+                      bank.showAllAccounts(bank.customers.get(bank.customers.size() - 1));
+                      printInBox(bank.customers.get(bank.customers.size() - 1));
+                      printBorder();
+                      System.out.println(printLeft("Go Home, Please wait a second"));
+                      printBorder();
+                      menuProcess = 0;
+                      break;
+                   }
+                   //대출 계좌 개설
+                   else if(selectNum  == 2) {
+                      bank.customers.get(bank.customers.size() - 1).addAccount(project.new LoanPlan2(loanAccountNum, balance));
+                      bank.showAllAccounts(bank.customers.get(bank.customers.size() - 1));
+                      printInBox(bank.customers.get(bank.customers.size() - 1));
+                      goHome();
+                      break;
+                      
+                   }
+                   else if(selectNum == 0) {goHome();break;}
+                   else {
+                      printBorder();
+                      System.out.println("Wrong Menu! Select Again!");
+                      printBorder();
+                   }
+                 }
+                break;
+             }
+             break;
+          case 5: 
+             //기존 고객 
+             String AccountNumber;
+              while(true) {
+                 //5번 메뉴 출력
+                 printBorder();
+                  for(var menu : menuItems) {
+                     System.out.println(printLeft(menu));
+                  }
+                 System.out.print("| Input Here! : ");
+               selectNum = stdIn.nextInt();
+               stdIn.nextLine();//엔터 없애기 
+               printBorder();
+               if(selectNum == 0) {
+                  goHome();
+                  break;
+               }
+               //1~5번까지 메뉴라면
+               else if(selectNum > 0 && selectNum <= 5) {
+                  
+                  isDuplicate = false;
+                  do {
+                     //이름, 전화번호, 나이 입력받기
+                     printBorder();
+                     for(var str : bank.menuStr[2])
+                        System.out.println(printLeft(str));
+                     printBorder();
+                     System.out.print("| Input Here! : ");
+                      nameAccount = stdIn.nextLine();
+                      nameAccountArray = nameAccount.replace(" ", "").split(",");
+                   } while(nameAccountArray.length != 3);
+                  Customer ExistingCustomer = null;
+                  //중복 확인
+                   for(var i : bank.customers) {
+                      if(nameAccountArray[0].equals(i.name) && nameAccountArray[1].equals(i.phoneNumber) && Integer.parseInt(nameAccountArray[2]) == i.age) {
+                         isDuplicate = true;
+                         ExistingCustomer = i;
+                         break;
+                      }
+                   }
+                   //중복이라면
+                   if(isDuplicate) {
+                      switch(selectNum) {
+                      //예금
+                      case 1:
+                         printBorder();
+                         System.out.println(printLeft("Your Account List : "));
+                         for( var i : ExistingCustomer.accounts) {
+                            System.out.println(printLeft(i.accountNumber));
+                         }
+                         System.out.print("| Input Here! : ");
+                         AccountNumber = stdIn.nextLine();
+                         find: for( var i : ExistingCustomer.accounts) {
+                            if(AccountNumber.equals(i.accountNumber)) {
+                               while(true) {
+                                  System.out.print("| Input Balance! : ");
+                                  double balance = stdIn.nextDouble();
+                                  if(balance >= 0) {
+                                     i.deposit(balance);
+                                     bank.showAllAccounts(ExistingCustomer);
+                                     printBorder();
+                                     printInBox(ExistingCustomer);
+                                     printBorder();
+                                     break find;
+                                  }
+                                  else {
+                                     System.out.println(printLeft("Invalid balance"));
+                                  }
+                               }
+                            }
+                         }
+                         break;
+                         //출금
+                      case 2:
+                         printBorder();
+                         System.out.println(printLeft("Your Account List : "));
+                         for( var i : ExistingCustomer.accounts) {
+                            System.out.println(printLeft(i.accountNumber));
+                         }
+                         System.out.print("| Input Here! : ");
+                         AccountNumber = stdIn.nextLine();
+                         find: for( var i : ExistingCustomer.accounts) {
+                            if(AccountNumber.equals(i.accountNumber)) {
+                               while(true) {
+                                  System.out.print("| Input Balance! : ");
+                                  double balance = stdIn.nextDouble();
+                                  if(balance >= 0) {
+                                     i.withdraw(balance);
+                                     bank.showAllAccounts(ExistingCustomer);
+                                     printBorder();
+                                     printInBox(ExistingCustomer);
+                                     printBorder();
+                                     break find;
+                                  }
+                                  else {
+                                     System.out.println(printLeft("Invalid balance"));
+                                  }
+                               }
+                            }
+                         }
+                         break;
+                         //계좌 정보 출력
+                      case 3:
+                         printBorder();
+                         System.out.println(printLeft("Your Account List : "));
+                         for( var i : ExistingCustomer.accounts) {
+                            System.out.println(printLeft(i.accountNumber));
+                         }
+                         printBorder();
+                         break;
+                         //계좌 잔액 출력
+                      case 4:
+                         printBorder();
+                         System.out.println(printLeft("Your Account List : "));
+                         for( var i : ExistingCustomer.accounts) {
+                            System.out.println(printLeft("" + (i.balance)));
+                         }
+                         printBorder();
+                         break;
+                         //정보 출력
+                      case 5:
+                         bank.showAllAccounts(ExistingCustomer);
+                         printBorder();
+                         printInBox(ExistingCustomer);
+                         printBorder();
+                         break;
+                      }
+                   }
+                   //아니면
+                   else {
+                      printBorder();
+                      System.out.println(printLeft("Customer does not exist"));
+                      printBorder();
+                      continue;
+                   }
+                   break;
+                  
+               }
+               else {
+                  //기존 고객의 적금, 대출 상품 가입
+                  if(selectNum == 6) {
+                     isNew = false;
+                     menuProcess = 2;
+                     break;
+                  } else if(selectNum == 7) {
+                     isNew = false;
+                     menuProcess = 3;
+                     break;
+                  }
+                  else {
+                     printBorder();
+                      System.out.println(printLeft("Wrong Menu! Select Again!"));
+                      printBorder();
+                  }
+                  
+               }
+              }
+              break;
+              //게임 선택메뉴 출력
+          case 6:
+             while(true) {
+                printBorder();
+                 for(var menu : menuItems) {
+                    System.out.println(printLeft(menu));
+                 }
+                System.out.print("| Input Here! : ");
+               selectNum = stdIn.nextInt();
+               stdIn.nextLine();//엔터 없애기 
+               
+               if(selectNum == 0) {
+                  goHome();
+                  break;
+               }
+               else if(selectNum == 1 || selectNum == 2) {
+                  menuProcess = 6 + selectNum;
+                  break;
+               }
+               else {
+                  System.out.println(printLeft("Wrong Menu! Select Again!"));
+               }
+               printBorder();
+             }
+            break;
+            //게임1번
+          case 7:
+             printBorder();
+              for(var menu : menuItems) {
+                 System.out.println(printLeft(menu));
+              }
+              System.out.println(printLeft("Game Starting"));
+              //게임에서 승리할 시 50원 지급
+              if(vocaGame(stdIn)) {
+                 menuItems = bank.menuStr[2];
+                 printBorder();
+                 for(var menu : menuItems) {
+                     System.out.println(printLeft(menu));
+                  }
+                 printBorder();
+                 do {
+                 System.out.print("| Input Here2! : ");
+                 nameAccount = stdIn.nextLine();
+                 nameAccountArray = nameAccount.replace(" ", "").split(",");
+                 } while(nameAccountArray.length != 3);
+                 isDuplicate = false;
+                 customer = null;
+                 for(var i : bank.customers) {
+                    if(nameAccountArray[0].equals(i.name) && nameAccountArray[1].equals(i.phoneNumber) && Integer.parseInt(nameAccountArray[2]) == i.age) {
+                       isDuplicate = true;
+                       customer = i;
+                       break;
+                    }
+                 }
+                 if(isDuplicate) {
+                    printBorder();
+                   System.out.println(printLeft("Your Account List : "));
+                   for( var i : customer.accounts) {
+                      System.out.println(printLeft(i.accountNumber));
+                   }
+                   System.out.print("| Input Here! : ");
+                   AccountNumber = stdIn.nextLine();
+                   find: for( var i : customer.accounts) {
+                      if(AccountNumber.equals(i.accountNumber)) {
+                         while(true) {
+                               i.deposit(50);
+                               bank.showAllAccounts(customer);
+                               printBorder();
+                               printInBox(customer);
+                               printBorder();
+                               break find;
+                         }
+                      }
+                   }
+                 }
+                 else {
+                    printBorder();
+                    System.out.println(printLeft("Customer does not exist"));
+                 }
+              }
+              //게임 선택메뉴로 복귀
+              menuProcess = 6;
+             break;
+             //게임 2번
+          case 8:
+             printBorder();
+              for(var menu : menuItems) {
+                 System.out.println(printLeft(menu));
+              }
+              System.out.println(printLeft("Game Starting"));
+              //게임에서 승리할시 50원 지급
+              if(mazeGame(stdIn)) {
+                 menuItems = bank.menuStr[2];
+                 printBorder();
+                 for(var menu : menuItems) {
+                     System.out.println(printLeft(menu));
+                  }
+                 stdIn.nextLine();
+                 printBorder();
+                 do {
+                 System.out.print("| Input Here! : ");
+                 nameAccount = stdIn.nextLine();
+                 nameAccountArray = nameAccount.replace(" ", "").split(",");
+                 } while(nameAccountArray.length != 3);
+                 isDuplicate = false;
+                 customer = null;
+                 for(var i : bank.customers) {
+                    if(nameAccountArray[0].equals(i.name) && nameAccountArray[1].equals(i.phoneNumber) && Integer.parseInt(nameAccountArray[2]) == i.age) {
+                       isDuplicate = true;
+                       customer = i;
+                       break;
+                    }
+                 }
+                 if(isDuplicate) {
+                    printBorder();
+                   System.out.println(printLeft("Your Account List : "));
+                   for( var i : customer.accounts) {
+                      System.out.println(printLeft(i.accountNumber));
+                   }
+                   System.out.print("| Input Here! : ");
+                   AccountNumber = stdIn.nextLine();
+                   find: for( var i : customer.accounts) {
+                      if(AccountNumber.equals(i.accountNumber)) {
+                         while(true) {
+                               i.deposit(50);
+                               bank.showAllAccounts(customer);
+                               printBorder();
+                               printInBox(customer);
+                               printBorder();
+                               break find;
+                         }
+                      }
+                   }
+                 }
+                 else {
+                    printBorder();
+                    System.out.println(printLeft("Customer does not exist"));
+                 }
+              }
+              //게임 선택메뉴로 복귀
+              menuProcess = 6;
+              break;
+          }
+        }
+    }
+}
